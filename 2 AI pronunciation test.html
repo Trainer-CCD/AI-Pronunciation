@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Pronunciation AI - Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .app-wrapper {
+            display: flex;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        /* Side Panels for Word Tracking */
+        .side-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            flex: 1;
+            min-width: 200px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .side-panel h3 {
+            margin-top: 0;
+            font-size: 18px;
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        .left-panel h3 { color: #e74c3c; }
+        .right-panel h3 { color: #27ae60; }
+        
+        .word-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .word-list li {
+            padding: 8px 0;
+            font-size: 15px;
+            border-bottom: 1px solid #f1f1f1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .mistake-count {
+            font-size: 12px;
+            background: #fdf2e9;
+            color: #d35400;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-weight: bold;
+        }
+
+        /* Main Center App Container */
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            flex: 2;
+            min-width: 320px;
+            max-width: 450px;
+        }
+        
+        h2 { color: #2c3e50; margin-bottom: 5px; margin-top: 0; }
+        .phase-indicator {
+            font-size: 14px;
+            font-weight: bold;
+            color: #8e44ad;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .word-display {
+            font-size: 26px;
+            font-weight: bold;
+            color: #2980b9;
+            margin: 15px 0;
+            padding: 20px;
+            background: #ecf0f1;
+            border-radius: 8px;
+            min-height: 35px;
+        }
+        .status {
+            margin: 15px 0;
+            font-size: 16px;
+            color: #7f8c8d;
+            min-height: 40px;
+            line-height: 1.4;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 20px;
+            color: #555;
+            font-weight: 600;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            font-size: 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+            flex: 1;
+            min-width: 120px;
+        }
+        button:hover { background-color: #2980b9; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        #mic-btn { background-color: #e74c3c; font-weight: bold; }
+        #mic-btn:hover { background-color: #c0392b; }
+        #skip-btn { background-color: #f39c12; }
+        #skip-btn:hover { background-color: #d68910; }
+        #next-phase-btn { background-color: #27ae60; display: none; width: 100%; }
+        #next-phase-btn:hover { background-color: #2ecc71; }
+
+        /* Responsive Stacking for smaller screens */
+        @media (max-width: 850px) {
+            .app-wrapper {
+                flex-direction: column;
+                align-items: center;
+            }
+            .side-panel {
+                width: 100%;
+                max-width: 450px;
+                box-sizing: border-box;
+            }
+            .container {
+                order: -1; 
+                width: 100%;
+                box-sizing: border-box;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-wrapper">
+    <div class="side-panel left-panel">
+        <h3>Needs Practice</h3>
+        <ul class="word-list" id="incorrect-list">
+            </ul>
+    </div>
+
+    <div class="container">
+        <h2>Pronunciation Check</h2>
+        <div class="phase-indicator" id="phase-indicator">Ready to Start</div>
+        
+        <div class="stats" id="stats-container">
+            <span id="correct-count">Correct: 0/3</span>
+            <span id="attempt-count">Attempts: 0/3</span>
+        </div>
+
+        <div class="word-display" id="current-word">Press Start</div>
+
+        <div class="status" id="status-message">Prepare to read and repeat medical terminology.</div>
+
+        <div class="controls">
+            <button id="start-btn" onclick="initializeSession()">Start Session</button>
+            <button id="listen-btn" onclick="speakWord()" disabled>Listen</button>
+            <button id="mic-btn" onclick="startListening()" disabled>Speak</button>
+            <button id="skip-btn" onclick="skipWord()" disabled>Skip</button>
+            <button id="next-phase-btn" onclick="startPhaseTwo()">Start Round 2</button>
+        </div>
+    </div>
+
+    <div class="side-panel right-panel">
+        <h3>Mastered</h3>
+        <ul class="word-list" id="correct-list">
+            </ul>
+    </div>
+</div>
+
+<script>
+    // Initial Configuration
+    const initialWords = [
+        "Eligible",
+	"Orthopedic", 
+        "Cough", 
+        "Breath", 
+        "Medical facility",
+        "ischemia"
+    ];
+    
+    let wordQueue = [...initialWords];
+    let mistakeTracker = {}; 
+    let masteredWords = new Set(); 
+    
+    let currentWord = "";
+    let correctCount = 0;
+    let attemptCount = 0;
+    let phase = 1; 
+    let requiredReps = 3;
+
+    // Browser APIs Setup
+    const synth = window.speechSynthesis;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+
+    // UI Elements
+    const uiWord = document.getElementById('current-word');
+    const uiStatus = document.getElementById('status-message');
+    const uiCorrect = document.getElementById('correct-count');
+    const uiAttempt = document.getElementById('attempt-count');
+    const uiPhase = document.getElementById('phase-indicator');
+    const uiStats = document.getElementById('stats-container');
+    
+    const uiIncorrectList = document.getElementById('incorrect-list');
+    const uiCorrectList = document.getElementById('correct-list');
+    
+    const btnStart = document.getElementById('start-btn');
+    const btnListen = document.getElementById('listen-btn');
+    const btnMic = document.getElementById('mic-btn');
+    const btnSkip = document.getElementById('skip-btn');
+    const btnNextPhase = document.getElementById('next-phase-btn');
+
+    // --- NEW: Handle Upfront Permissions ---
+    async function initializeSession() {
+        uiStatus.innerText = "Requesting microphone access...";
+        try {
+            // Requesting mic access explicitly caches the permission for the session
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            // Instantly stop the direct stream so we don't hold the mic hostage, 
+            // the SpeechRecognition API will manage its own connection now seamlessly.
+            stream.getTracks().forEach(track => track.stop());
+            
+            startSessionLogic();
+        } catch (err) {
+            uiStatus.innerText = "Microphone access is required to use this tool. Please allow access and reload.";
+            uiStatus.style.color = "#e74c3c";
+        }
+    }
+
+    function updateStats() {
+        uiCorrect.innerText = `Correct: ${correctCount}/${requiredReps}`;
+        uiAttempt.innerText = `Attempts: ${attemptCount}/3`;
+    }
+
+    function updateSidePanels() {
+        uiCorrectList.innerHTML = '';
+        uiIncorrectList.innerHTML = '';
+
+        // Update Right (Correct)
+        masteredWords.forEach(word => {
+            let li = document.createElement('li');
+            li.innerHTML = `<span>✅ ${word}</span>`;
+            uiCorrectList.appendChild(li);
+        });
+
+        // Update Left (Incorrect)
+        for (let word in mistakeTracker) {
+            if (mistakeTracker[word] > 0) {
+                let li = document.createElement('li');
+                li.innerHTML = `<span>❌ ${word}</span> <span class="mistake-count">${mistakeTracker[word]} fails</span>`;
+                uiIncorrectList.appendChild(li);
+            }
+        }
+    }
+
+    function toggleControls(active) {
+        btnListen.style.display = active ? 'block' : 'none';
+        btnMic.style.display = active ? 'block' : 'none';
+        btnSkip.style.display = active ? 'block' : 'none';
+        
+        btnListen.disabled = !active;
+        btnMic.disabled = !active;
+        btnSkip.disabled = !active;
+    }
+
+    function startSessionLogic() {
+        btnStart.style.display = 'none';
+        toggleControls(true);
+        phase = 1;
+        requiredReps = 3;
+        uiPhase.innerText = "Round 1 (3 Repetitions)";
+        loadNextWord();
+    }
+
+    function skipWord() {
+        uiStatus.innerText = `Skipped "${currentWord}". Moved to the end of the queue.`;
+        wordQueue.push(currentWord);
+        setTimeout(loadNextWord, 1500);
+    }
+
+    function loadNextWord() {
+        if (wordQueue.length === 0) {
+            if (phase === 1) {
+                endPhaseOne();
+            } else {
+                endSession();
+            }
+            return;
+        }
+
+        currentWord = wordQueue.shift();
+        correctCount = 0;
+        attemptCount = 0;
+        updateStats();
+        
+        uiWord.innerText = currentWord;
+        uiStatus.innerText = "Listen to the word, then try it yourself.";
+        speakWord();
+    }
+
+    function speakWord() {
+        if (synth.speaking) { synth.cancel(); }
+        const utterThis = new SpeechSynthesisUtterance(currentWord);
+        utterThis.rate = 0.8;
+        synth.speak(utterThis);
+    }
+
+    function startListening() {
+        uiStatus.innerText = "Listening... Speak now!";
+        btnMic.disabled = true;
+        btnSkip.disabled = true;
+        recognition.start();
+    }
+
+    recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript.toLowerCase().replace(/[^a-z]/g, '');
+        const target = currentWord.toLowerCase().replace(/[^a-z]/g, '');
+        
+        if (transcript === target || transcript.includes(target) || target.includes(transcript)) {
+            correctCount++;
+            uiStatus.innerText = `Great job! You said ${event.results[0][0].transcript}.`;
+            updateStats();
+            
+            if (correctCount >= requiredReps) {
+                masteredWords.add(currentWord);
+                updateSidePanels();
+
+                uiStatus.innerText = "Perfect! Moving to the next word...";
+                setTimeout(loadNextWord, 2000);
+            }
+        } else {
+            attemptCount++;
+            mistakeTracker[currentWord] = (mistakeTracker[currentWord] || 0) + 1;
+            updateSidePanels();
+            
+            uiStatus.innerText = `I heard "${event.results[0][0].transcript}". That wasn't quite right.`;
+            updateStats();
+
+            if (attemptCount >= 3) {
+                uiStatus.innerText = "Too many attempts. Moved to the end of the queue.";
+                wordQueue.push(currentWord);
+                setTimeout(loadNextWord, 2500);
+            }
+        }
+    }
+
+    recognition.onspeechend = function() {
+        recognition.stop();
+        btnMic.disabled = false;
+        btnSkip.disabled = false;
+    }
+
+    recognition.onerror = function(event) {
+        uiStatus.innerText = "Error recognizing speech. Please try again.";
+        btnMic.disabled = false;
+        btnSkip.disabled = false;
+    }
+
+    // --- Phase Management Logic ---
+
+    function endPhaseOne() {
+        toggleControls(false);
+        const hasMistakes = Object.values(mistakeTracker).some(count => count > 0);
+
+        if (!hasMistakes) {
+            uiPhase.innerText = "Session Complete";
+            uiWord.innerText = "Flawless!";
+            uiStatus.innerText = "Congratulations! You completed all words perfectly on the first try!";
+            uiStats.style.display = 'none';
+        } else {
+            uiPhase.innerText = "Round 1 Complete";
+            uiWord.innerText = "Review Time";
+            uiStatus.innerText = "Let's review the words in your 'Needs Practice' list.";
+            
+            const sortedMistakes = Object.entries(mistakeTracker).filter(([word, count]) => count > 0);
+            wordQueue = sortedMistakes.map(entry => entry[0]);
+            
+            btnNextPhase.style.display = 'block';
+        }
+    }
+
+    function startPhaseTwo() {
+        phase = 2;
+        requiredReps = 1;
+        
+        btnNextPhase.style.display = 'none';
+        toggleControls(true);
+        
+        uiPhase.innerText = "Round 2 (1 Repetition)";
+        loadNextWord();
+    }
+
+    function endSession() {
+        toggleControls(false);
+        uiPhase.innerText = "Training Complete";
+        uiWord.innerText = "Excellent Work!";
+        uiStats.style.display = 'none';
+        
+        const hasMistakes = Object.values(mistakeTracker).some(count => count > 0);
+        if (hasMistakes) {
+            uiStatus.innerText = "Congratulations! You finished the module. Review your final 'Needs Practice' list for future offline study.";
+        } else {
+            uiStatus.innerText = "Congratulations! You mastered everything!";
+        }
+    }
+</script>
+
+</body>
+</html>
